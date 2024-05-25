@@ -14,6 +14,10 @@ if not QApplication.instance():
 else:
     app = QApplication.instance()
 
+import os
+from datetime import datetime
+import time
+
 
 class MainWindow(QMainWindow):
     def __init__(
@@ -61,6 +65,44 @@ class MainWindow(QMainWindow):
         self.keyPressEvent = self.on_key_event(scrcpy.ACTION_DOWN)
         self.keyReleaseEvent = self.on_key_event(scrcpy.ACTION_UP)
 
+        self.__current_screenshot = None  # 用于在标注期间的输入后保存当前的截图
+
+    def save_current_screenshot(
+        self, fn=None
+    ):  # NOTE: 由于操作从电脑发送给手机后，还要过一段时间才会有反应，所以也许要在操作后等待一段时间再保存截图
+        time.sleep(0.5)
+        output_dir = "annotated_images"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if fn is None:
+            fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
+        output_path = os.path.join(output_dir, f"{fn}.png")
+        self.__current_screenshot.save(output_path)
+        self.save_current_xml(fn)
+
+    def save_current_xml(self, fn=None):
+        # time.sleep(0.5)
+        output_dir = "annotations"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if fn is None:
+            fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
+        output_path = os.path.join(output_dir, f"{fn}.xml")
+        # adb shell /system/bin/uiautomator dump --compressed /data/local/tmp/uidump.xml
+        # adb pull /data/local/tmp/uidump.xml ./
+        self.device.shell(
+            f"/system/bin/uiautomator dump --compressed /data/local/tmp/uidump.xml"
+        )
+        self.device.sync.pull("/data/local/tmp/uidump.xml", output_path, exist_ok=True)
+
+    def save_input(self, input_str: str):
+        output_dir = "annotations"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        output_path = os.path.join(output_dir, "log.txt")
+        with open(output_path, "a") as f:
+            f.write(input_str + "\n")
+
     def choose_device(self, device):
         if device not in self.devices:
             msgBox = QMessageBox()
@@ -85,12 +127,27 @@ class MainWindow(QMainWindow):
         self.client.flip = self.ui.flip.isChecked()
 
     def on_click_home(self):
+        # print("click home")
+        log_str = """key_event,home,down"""
+        self.save_input(log_str)
+        print(log_str)
+        self.save_current_screenshot()
         self.client.control.keycode(scrcpy.KEYCODE_HOME, scrcpy.ACTION_DOWN)
         self.client.control.keycode(scrcpy.KEYCODE_HOME, scrcpy.ACTION_UP)
+        self.save_current_screenshot()
+        log_str = """key_event,home,up"""
+        self.save_input(log_str)
 
     def on_click_back(self):
+        # print("click back")
+        log_str = """key_event,back,down"""
+        self.save_input(log_str)
+        self.save_current_screenshot()
         self.client.control.back_or_turn_screen_on(scrcpy.ACTION_DOWN)
         self.client.control.back_or_turn_screen_on(scrcpy.ACTION_UP)
+        self.save_current_screenshot()
+        log_str = """key_event,back,up"""
+        self.save_input(log_str)
 
     def on_mouse_event(self, action=scrcpy.ACTION_DOWN):
         def handler(evt: QMouseEvent):
@@ -98,9 +155,26 @@ class MainWindow(QMainWindow):
             if focused_widget is not None:
                 focused_widget.clearFocus()
             ratio = self.max_width / max(self.client.resolution)
+            if (
+                action != scrcpy.ACTION_MOVE
+            ):  # WARNING: 在真正标注数据的时候，必须要在click之后才记录move事件，而不能完全舍弃move事件
+                a = action
+                if a == scrcpy.ACTION_DOWN:
+                    a = "down"
+                elif a == scrcpy.ACTION_UP:
+                    a = "up"
+                # print(f"Mouse event: {evt.position().x() / ratio} {evt.position().y() / ratio} {a}")
+                log_str = f"mouse_event,{evt.position().x() / ratio},{evt.position().y() / ratio},{a}"
+                print(log_str)
+                self.save_input(log_str)
+                self.save_current_screenshot()
             self.client.control.touch(
                 evt.position().x() / ratio, evt.position().y() / ratio, action
             )
+            if (
+                action != scrcpy.ACTION_MOVE
+            ):  # WARNING: 在真正标注数据的时候，必须要在click之后才记录move事件，而不能完全舍弃move事件
+                self.save_current_screenshot()
 
         return handler
 
@@ -108,7 +182,21 @@ class MainWindow(QMainWindow):
         def handler(evt: QKeyEvent):
             code = self.map_code(evt.key())
             if code != -1:
+                a = action
+                k = evt.key()
+                if a == scrcpy.ACTION_DOWN:
+                    a = "down"
+                elif a == scrcpy.ACTION_UP:
+                    a = "up"
+                # qt keycode to string
+                k = Qt.Key(k).name
+                # print(f"Key event: {k} {a}")
+                log_str = f"key_event,{k},{a}"
+                print(log_str)
+                self.save_input(log_str)
+                self.save_current_screenshot()
                 self.client.control.keycode(code, action)
+                self.save_current_screenshot()
 
         return handler
 
@@ -158,6 +246,7 @@ class MainWindow(QMainWindow):
                 frame.shape[1] * 3,
                 QImage.Format_BGR888,
             )
+            self.__current_screenshot = image  # 保存当前的截图
             pix = QPixmap(image)
             pix.setDevicePixelRatio(1 / ratio)
             self.ui.label.setPixmap(pix)

@@ -1,0 +1,4 @@
+av>=9.0.0
+opencv-python>=4.5.0
+adbutils>=1.0.8
+PySide6>=6.0.0
