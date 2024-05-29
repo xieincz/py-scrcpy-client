@@ -1,41 +1,30 @@
 # Python Scrcpy Client
-<p>
-    <a href="https://pypi.org/project/scrcpy-client/" target="_blank">
-        <img src="https://img.shields.io/pypi/v/scrcpy-client" />
-    </a>
-    <a href="https://github.com/leng-yue/py-scrcpy-client/actions/workflows/ci.yml" target="_blank">
-        <img src="https://img.shields.io/github/actions/workflow/status/leng-yue/py-scrcpy-client/ci.yml?branch=main" />
-    </a>
-    <a href="https://app.codecov.io/gh/leng-yue/py-scrcpy-client" target="_blank">
-        <img src="https://img.shields.io/codecov/c/github/leng-yue/py-scrcpy-client" />
-    </a>
-    <img src="https://img.shields.io/github/license/leng-yue/py-scrcpy-client" />
-    <a href="https://pepy.tech/project/scrcpy-client" target="_blank">
-        <img src="https://pepy.tech/badge/scrcpy-client" />
-    </a>
-    <a href="https://github.com/Genymobile/scrcpy/tree/v1.20" target="_blank">
-        <img src="https://img.shields.io/badge/scrcpy-v1.20-violet" />
-    </a>
-</p>
-
 This package allows you to view and control android device in realtime.
 
-![demo gif](https://raw.githubusercontent.com/leng-yue/py-scrcpy-client/main/demo.gif)  
 
-Note: This gif is compressed and experience lower quality than actual.
 
 ## How to use
+建议使用 python 3.10
+
 To begin with, you need to install this package via pip:
+
 ```shell
-pip install scrcpy-client[ui]
+pip install -r requirements.txt
 ```
-Then, you can start `py-scrcpy` to view the demo:
 
-Note: you can ignore `[ui]` if you don't want to view the demo ui
 
-## Document
-Here is the document GitHub page: [Documentation](https://leng-yue.github.io/py-scrcpy-client/)  
-Also, you can check `scrcpy_ui/main.py` for a full functional demo.
+## 运行方法
+
+```bash
+adb devices
+python -m scrcpy_ui.main
+```
+
+注：每标注完一个task都要手动将当前目录下的 annotated_images 和 annotations 文件夹移动到别处，以免被下一次task的标注所覆盖。执行完当前task的最后一步之后请等待5秒左右，以确保最后一张截图能被顺利保存。
+
+注：只需要鼠标/键盘在电脑上进行操作即可，只会记录在电脑上的操作。如果需要关闭广告/弹窗，可以直接用手指点击手机屏幕，这样就不会被记录下来。
+
+
 
 ## Contribution & Development
 Already implemented all functions in scrcpy server 1.20.  
