@@ -4,7 +4,7 @@ from typing import Optional
 from adbutils import adb
 from PySide6.QtGui import QImage, QKeyEvent, QMouseEvent, QPixmap, Qt
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
-
+from PySide6.QtCore import QTimer
 import scrcpy
 
 from .ui_main import Ui_MainWindow
@@ -18,7 +18,25 @@ import os
 from datetime import datetime
 import time
 import threading
+import multiprocessing as mp
 
+img_queue = mp.Queue()
+from PySide6 import QtGui, QtCore
+
+class Pickable_QPixmap(QtGui.QPixmap):
+    def __reduce__(self):
+        return type(self), (), self.__getstate__()
+
+    def __getstate__(self):
+        ba = QtCore.QByteArray()
+        stream = QtCore.QDataStream(ba, QtCore.QIODevice.WriteOnly)
+        stream << self
+        return ba
+
+    def __setstate__(self, ba):
+        stream = QtCore.QDataStream(ba, QtCore.QIODevice.ReadOnly)
+        stream >> self
+        
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -86,15 +104,18 @@ class MainWindow(QMainWindow):
         print("screenshot saved")
     
     def save_current_screenshot_sleep(
-        self, fn=None,time_sleep=0.5
+        self, fn=None,time_sleep=1.5
     ):
-        time.sleep(time_sleep)
-        self.save_current_screenshot(fn)
+        app.processEvents()
+        #time.sleep(time_sleep)
+        #self.save_current_screenshot(fn)
+        QTimer.singleShot(time_sleep * 1000, lambda: self.save_current_screenshot(fn))
 
     def save_current_screenshot(
         self, fn=None
     ):  # NOTE: 由于操作从电脑发送给手机后，还要过一段时间才会有反应，所以也许要在操作后等待一段时间再保存截图
-        time.sleep(1)
+        app.processEvents()
+        #time.sleep(1)
         output_dir = "annotated_images"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -102,7 +123,9 @@ class MainWindow(QMainWindow):
             fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
         output_path = os.path.join(output_dir, f"{fn}.png")
         #self.__current_screenshot.save(output_path)
-        self.device.screenshot().save(output_path)
+        #img_queue.put((output_path,Pickable_QPixmap(self.__current_screenshot)))
+        img_queue.put((output_path,self.__current_screenshot))
+        #self.device.screenshot()#.save(output_path)
         #self.save_current_xml(fn)
 
     def save_current_xml(self, fn=None):
@@ -275,9 +298,10 @@ class MainWindow(QMainWindow):
     def on_init(self):
         self.setWindowTitle(f"Serial: {self.client.device_name}")
 
-    def on_frame(self, frame):
+    def on_frame(self, frame):#这里的frame其实是frame = cv2.flip(frame, 1)
         app.processEvents()
         if frame is not None:
+            self.__current_screenshot = frame
             ratio = self.max_width / max(self.client.resolution)
             image = QImage(
                 frame,
@@ -286,7 +310,7 @@ class MainWindow(QMainWindow):
                 frame.shape[1] * 3,
                 QImage.Format_BGR888,
             )
-            self.__current_screenshot = image  # 保存当前的截图
+            #self.__current_screenshot = image  # 保存当前的截图
             pix = QPixmap(image)
             pix.setDevicePixelRatio(1 / ratio)
             self.ui.label.setPixmap(pix)
@@ -297,6 +321,23 @@ class MainWindow(QMainWindow):
         self.alive = False
 
 import shutil
+
+def save_img_queue(img_queue):
+    while True:
+        if not img_queue.empty():
+            output_path, img = img_queue.get()
+            img=image = QImage(
+                img,
+                img.shape[1],
+                img.shape[0],
+                img.shape[1] * 3,
+                QImage.Format_BGR888,
+            )
+            img.save(output_path)
+            print("screenshot saved")
+        time.sleep(0.1)
+    exit(0)
+process=None
 def main():
     annotation_dirs=["annotations","annotated_images"]
     fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
@@ -309,7 +350,9 @@ def main():
                     shutil.move(dn,fn)
             print("saved existing annotations and annotated images to",fn)
             break
-    
+    process=mp.Process(target=save_img_queue,args=(img_queue,))
+    process.daemon=True
+    process.start()
     parser = ArgumentParser(description="A simple scrcpy client")
     parser.add_argument(
         "-m",
@@ -336,4 +379,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        if process:
+            process.terminate()
+        print("exit")
+        exit(0)
