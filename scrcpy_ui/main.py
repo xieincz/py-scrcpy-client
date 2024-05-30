@@ -102,7 +102,7 @@ class MainWindow(QMainWindow):
             return
         app.processEvents()
         #time.sleep(1)
-        output_dir = "annotated_images"
+        output_dir = "label_image"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if fn is None:
@@ -326,7 +326,7 @@ def save_img_queue(img_queue):
     exit(0)
 process=None
 def main():
-    annotation_dirs=["annotations","annotated_images"]
+    annotation_dirs=["annotations","label_image"]
     fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
     for dn in annotation_dirs:
         if os.path.exists(dn):
