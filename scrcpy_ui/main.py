@@ -85,7 +85,8 @@ class MainWindow(QMainWindow):
         self.keyReleaseEvent = self.on_key_event(scrcpy.ACTION_UP)
 
         self.__current_screenshot = None  # 用于在标注期间的输入后保存当前的截图
-        self.__saved_first_screenshot = False
+        #self.__saved_first_screenshot = False
+        self.__screenshot_cnt=0
     
     def save_current_screenshot_sleep(
         self, fn=None,time_sleep=1.5
@@ -98,7 +99,7 @@ class MainWindow(QMainWindow):
     def save_current_screenshot(
         self, fn=None,skip=True
     ):  # NOTE: 由于操作从电脑发送给手机后，还要过一段时间才会有反应，所以也许要在操作后等待一段时间再保存截图
-        if skip and self.__saved_first_screenshot:
+        if skip and self.__screenshot_cnt>0:
             return
         app.processEvents()
         #time.sleep(1)
@@ -106,12 +107,13 @@ class MainWindow(QMainWindow):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if fn is None:
-            fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
+            #fn = datetime.now().strftime(rf"%Y_%m_%d-%H_%M_%S.%f")
+            fn=f"{self.__screenshot_cnt}"
         output_path = os.path.join(output_dir, f"{fn}.png")
         #self.__current_screenshot.save(output_path)
         #img_queue.put((output_path,Pickable_QPixmap(self.__current_screenshot)))
         img_queue.put((output_path,self.__current_screenshot))
-        self.__saved_first_screenshot=True
+        self.__screenshot_cnt+=1
         #self.device.screenshot()#.save(output_path)
         #self.save_current_xml(fn)
 
