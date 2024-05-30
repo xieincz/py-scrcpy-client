@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
             flip=self.ui.flip.isChecked(),
             bitrate=1000000000,
             encoder_name=encoder_name,
+            max_fps=30
         )
         self.client.add_listener(scrcpy.EVENT_INIT, self.on_init)
         self.client.add_listener(scrcpy.EVENT_FRAME, self.on_frame)
