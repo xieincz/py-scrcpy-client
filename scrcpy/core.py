@@ -230,8 +230,9 @@ class Client:
         while self.alive:
             try:
                 raw_h264 = self.__video_socket.recv(0x10000)
-                #if raw_h264 == b"":
+                if raw_h264 == b"":
                     #raise ConnectionError("Video stream is disconnected")#HACK: walkaround for hua wei
+                    continue
                 packets = codec.parse(raw_h264)
                 for packet in packets:
                     frames = codec.decode(packet)
