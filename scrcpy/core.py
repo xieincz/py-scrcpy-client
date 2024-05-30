@@ -109,17 +109,22 @@ class Client:
         Connect to android server, there will be two sockets, video and control socket.
         This method will set: video_socket, control_socket, resolution variables
         """
+        #self.connection_timeout=5000
         for _ in range(self.connection_timeout // 100):
             try:
                 self.__video_socket = self.device.create_connection(
                     Network.LOCAL_ABSTRACT, "scrcpy"
                 )
+                #连接到tcp://localhost:1234
+                #self.__video_socket = self.device.create_connection(
+                #    Network.TCP, 1234
+                #)
                 break
             except AdbError:
                 sleep(0.1)
                 pass
         else:
-            raise ConnectionError("Failed to connect scrcpy-server after 3 seconds")
+            raise ConnectionError(f"Failed to connect scrcpy-server after {self.connection_timeout // 1000} seconds")
 
         dummy_byte = self.__video_socket.recv(1)
         if not len(dummy_byte) or dummy_byte != b"\x00":
@@ -167,6 +172,32 @@ class Client:
             self.encoder_name or "-",  # Encoder name
             "false",  # Power off screen after server closed
         ]
+        
+        commands = [
+            f"CLASSPATH=/data/local/tmp/{jar_name}",
+            "app_process",
+            "/",
+            "com.genymobile.scrcpy.Server",
+            "2.4",  # Scrcpy server version
+            "log_level=info",  # Log level: info, verbose...
+            f"max_size={self.max_width}",  # Max screen width (long side)
+            f"video_bit_rate={self.bitrate}",  # Bitrate of video
+            f"max_fps={self.max_fps}",  # Max frame per second
+            f"lock_video_orientation={self.lock_screen_orientation}",  # Lock screen orientation: LOCK_SCREEN_ORIENTATION
+            "tunnel_forward=true",  # Tunnel forward
+            #"-",  # Crop screen
+            #"false",  # Send frame rate to client
+            "control=true",  # Control enabled
+            "display_id=0",  # Display id
+            "show_touches=false",  # Show touches
+            "stay_awake=true" if self.stay_awake else "stay_awake=false",  # Stay awake
+            #"-",  # Codec (video encoding) options
+            #self.encoder_name or "-",  # Encoder name
+            "power_off_on_close=false",  # Power off screen after server closed,
+            "audio=false",
+            "raw_stream=true",
+            #"video_encoder=OMX.qcom.video.encoder.avc"
+        ]
 
         self.__server_stream: AdbConnection = self.device.shell(
             commands,
@@ -174,7 +205,9 @@ class Client:
         )
 
         # Wait for server to start
+        print("Waiting for server to start...")
         self.__server_stream.read(10)
+        print("Server started")
 
     def start(self, threaded: bool = False, daemon_threaded: bool = False) -> None:
         """
@@ -231,7 +264,7 @@ class Client:
             try:
                 raw_h264 = self.__video_socket.recv(0x10000)
                 if raw_h264 == b"":
-                    #raise ConnectionError("Video stream is disconnected")#HACK: walkaround for hua wei
+                    raise ConnectionError("Video stream is disconnected")#HACK: walkaround for hua wei
                     continue
                 packets = codec.parse(raw_h264)
                 for packet in packets:
