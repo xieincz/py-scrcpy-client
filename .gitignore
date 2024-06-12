@@ -2,6 +2,7 @@ annotations
 annotated_images
 * copy*
 label_image
+tmp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
